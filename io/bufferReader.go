@@ -8,7 +8,7 @@ import (
 
 // NewBufferingReaderAt
 // 将 io.Reader 读取到内存中以支持 io.ReaderAt & io.ReadSeeker
-func NewBufferingReader(r io.Reader) *bufferReader {
+func NewBufferReader(r io.Reader) *bufferReader {
 	return &bufferReader{r: r}
 }
 
@@ -80,7 +80,7 @@ func (br *bufferReader) Seek(offset int64, whence int) (int64, error) {
 		off = int64(len(br.buf)) + offset
 	}
 	if off < 0 || off > int64(len(br.buf)) {
-		return br.offset, errors.New("out of http range")
+		return br.offset, errors.New("out of range")
 	}
 
 	br.offset = off
@@ -88,10 +88,14 @@ func (br *bufferReader) Seek(offset int64, whence int) (int64, error) {
 }
 
 func (br *bufferReader) ReadAt(p []byte, off int64) (n int, err error) {
+	if off < 0 {
+		return 0, errors.New("negative offset")
+	}
+
 	br.lock.RLock()
 
 	// 需要读入缓存区的大小
-	needSize := func() int64 { return (off + int64(len(p))) - int64(len(br.buf)) }
+	needSize := func() int64 { return off + int64(len(p)-len(br.buf)) }
 
 	if need := needSize(); need > 0 {
 		br.lock.RUnlock()
@@ -111,4 +115,4 @@ func (br *bufferReader) ReadAt(p []byte, off int64) (n int, err error) {
 	return
 }
 
-var _ ReadSeekerAt = (*bufferReader)(nil)
+var _ ReadSeekReaderAt = (*bufferReader)(nil)

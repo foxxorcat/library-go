@@ -19,7 +19,7 @@ func (r *repeatReader) Read(p []byte) (n int, err error) {
 	return
 }
 
-// NewRepeatReader
+// RepeatReader
 // 重复读取data数据，永远不会返回io.EOF
 func NewRepeatReader(data ...byte) io.Reader {
 	return &repeatReader{

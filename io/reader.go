@@ -2,33 +2,54 @@ package ioutils
 
 import "io"
 
+type Reader = io.Reader
+type Closer = io.Closer
+type Size interface{ Size() int64 }
+
+/* ReaderAt */
+type ReaderAt = io.ReaderAt
+type ReadAtCloser interface {
+	ReaderAt
+	Closer
+}
 type SizeReaderAt interface {
-	io.ReaderAt
-	Size() int64
+	Size
+	ReaderAt
 }
-
 type SizeReaderAtCloser interface {
-	io.ReaderAt
-	io.Closer
-	Size() int64
+	Size
+	ReaderAt
+	Closer
 }
 
-type ReadSeekCloserAt interface {
-	io.ReaderAt
-	io.ReadSeekCloser
+/* ReadSeeker */
+type ReadSeeker = io.ReadSeeker
+type ReadSeekCloser = io.ReadSeekCloser
+type SizeReadSeeker interface {
+	Size
+	ReadSeeker
+}
+type SizeReadSeekCloser interface {
+	Size
+	ReadSeeker
+	Closer
 }
 
-type ReadSeekerAt interface {
-	io.ReaderAt
-	io.ReadSeeker
+/* ReadSeekReaderAt */
+type ReadSeekReaderAt interface {
+	ReadSeeker
+	ReaderAt
 }
-
-type SizeReadSeekCloserAt interface {
-	ReadSeekCloserAt
-	Size() int64
+type ReadSeekReadAtCloser struct {
+	ReadSeekReaderAt
+	Closer
 }
-
-type SizeReadSeekerAt interface {
-	ReadSeekerAt
-	Size() int64
+type SizeReadSeekReaderAt interface {
+	Size
+	ReadSeekReaderAt
+}
+type SizeReadSeekReadAtCloser interface {
+	Size
+	ReadSeekReaderAt
+	Closer
 }

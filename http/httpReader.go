@@ -31,8 +31,8 @@ func NewMultiHttpReader(ctx context.Context, client *http.Client, urls ...string
 		ioutils.SizeReaderAt
 		io.Closer
 	}{
-		SizeReaderAt: ioutils.NewMultiReaderAt(rs...),
-		Closer:       ioutils.NewMultiCloser(closes...),
+		SizeReaderAt: ioutils.MultiReaderAt(rs...),
+		Closer:       ioutils.MultiCloser(closes...),
 	}, nil
 }
 
@@ -40,7 +40,7 @@ func NewMultiHttpReader(ctx context.Context, client *http.Client, urls ...string
 // 依靠 HTTP-Range 实现 io.ReadAt 和 io.ReadSeeker
 // 大小来源于 resp.ContentLength
 // 默认不带缓存
-func NewHttpReader(ctx context.Context, client *http.Client, url string, ops ...httpRequestOption) (ioutils.SizeReadSeekCloserAt, error) {
+func NewHttpReader(ctx context.Context, client *http.Client, url string, ops ...httpRequestOption) (*httpReader, error) {
 	newReq := func() (*http.Request, error) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 		if err != nil {
@@ -73,6 +73,24 @@ func NewHttpReader(ctx context.Context, client *http.Client, url string, ops ...
 		client: client,
 		req:    newReq,
 		size:   resp.ContentLength,
+	}, nil
+}
+
+func NewHttpReaderBySize(ctx context.Context, client *http.Client, url string, size int64, ops ...httpRequestOption) (*httpReader, error) {
+	newReq := func() (*http.Request, error) {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		if err != nil {
+			return nil, err
+		}
+		for _, op := range ops {
+			op(req)
+		}
+		return req, nil
+	}
+	return &httpReader{
+		client: client,
+		req:    newReq,
+		size:   size,
 	}, nil
 }
 

@@ -7,7 +7,7 @@ import (
 )
 
 // GetStreamSize
-// 使用 Len() 方法获取大小
+// 使用 Size() 方法获取大小
 func GetStreamSize(r any) (int64, error) {
 	switch v := r.(type) {
 	case interface{ Size() int64 }:
@@ -56,7 +56,6 @@ func StreamSizeBySeeking(s io.Reader, all bool) (int64, error) {
 	// 获取当前位置
 	currentPosition, err := v.Seek(0, io.SeekCurrent)
 	if err != nil {
-
 		return 0, errors.WithMessage(err, "getting current offset:")
 	}
 	// 获取文件长度

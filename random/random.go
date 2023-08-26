@@ -45,7 +45,7 @@ func (randomReader) Read(p []byte) (n int, err error) {
 	return n, nil
 }
 
-// 快速生成随机数
+// 快速生成随机数 [0,n)
 //
 //go:linkname FastRandn runtime.fastrandn
 //go:nosplit

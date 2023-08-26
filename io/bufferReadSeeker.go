@@ -3,16 +3,18 @@ package ioutils
 import (
 	"errors"
 	"io"
+	"sync"
 
 	"github.com/foxxorcat/library-go/pool"
 	lru "github.com/hashicorp/golang-lru/v2"
 )
 
-// NewReaderAtBuffer return io.ReaderAt
-// 基于lru为io.ReaderAt提供缓存支持
+// NewReaderAtBuffer return ReadSeekCloserAt
+// 基于lru为io.ReadSeeker提供缓存支持
+// io.ErrUnexpectedEOF 转换为 io.EOF
 // @param blockSize 缓存块大小。
 // @param blockNum 缓存块数量.
-func NewReaderAtBuffer(r io.ReaderAt, blockSize int, blockNum int) *readerAtBuffer {
+func NewBufferReadSeeker(r io.ReadSeeker, blockSize int, blockNum int) *bufferReadSeeker {
 	pool := pool.NewPoolCap(blockNum, func() []byte {
 		return make([]byte, blockSize)
 	})
@@ -23,30 +25,60 @@ func NewReaderAtBuffer(r io.ReaderAt, blockSize int, blockNum int) *readerAtBuff
 		panic(err)
 	}
 
-	return &readerAtBuffer{
+	br := &bufferReadSeeker{
 		r:           r,
 		pool:        pool,
 		blockSize:   blockSize,
 		cacheBlocks: cache,
 	}
+
+	if c, ok := r.(io.Closer); ok {
+		br.c = c
+	}
+	return br
 }
 
-type readerAtBuffer struct {
-	r           io.ReaderAt
+type bufferReadSeeker struct {
+	r   io.ReadSeeker
+	c   io.Closer
+	off int64
+
+	lock sync.Mutex
+
 	pool        *pool.PoolChan[[]byte]
 	blockSize   int                     // 缓存块大小
 	cacheBlocks *lru.Cache[int, []byte] // 块缓存
 }
 
+func (r *bufferReadSeeker) Read(p []byte) (n int, err error) {
+	n, err = r.ReadAt(p, r.off)
+	r.off += int64(n)
+	return
+}
+
+func (r *bufferReadSeeker) Seek(offset int64, whence int) (n int64, err error) {
+	n, err = r.r.Seek(offset, whence)
+	r.off = n
+	return
+}
+
 // 加载块到缓存
-func (r *readerAtBuffer) loadBlock(index int) ([]byte, error) {
+func (r *bufferReadSeeker) loadBlock(index int) ([]byte, error) {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
 	if buf, ok := r.cacheBlocks.Get(index); ok {
 		return buf, nil
 	}
 
 	buf := r.pool.Get()
-	n, err := r.r.ReadAt(buf[:r.blockSize], int64(index)*int64(r.blockSize))
-	if err != nil && err != io.EOF {
+	_, err := r.r.Seek(int64(index)*int64(r.blockSize), io.SeekStart)
+	if err != nil {
+		return nil, err
+	}
+
+	n, err := io.ReadFull(r.r, buf[:r.blockSize])
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
 		return nil, err
 	}
 	buf = buf[:n]
@@ -54,7 +86,7 @@ func (r *readerAtBuffer) loadBlock(index int) ([]byte, error) {
 	return buf, nil
 }
 
-func (r *readerAtBuffer) ReadAt(p []byte, off int64) (rn int, err error) {
+func (r *bufferReadSeeker) ReadAt(p []byte, off int64) (rn int, err error) {
 	if off < 0 {
 		return 0, errors.New("negative offset")
 	}
@@ -85,4 +117,11 @@ func (r *readerAtBuffer) ReadAt(p []byte, off int64) (rn int, err error) {
 		}
 	}
 	return rn, nil
+}
+
+func (r *bufferReadSeeker) Close() error {
+	if r.c != nil {
+		return r.c.Close()
+	}
+	return nil
 }
