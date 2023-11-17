@@ -8,6 +8,7 @@ import (
 
 // NewBufferingReaderAt
 // 将 io.Reader 读取到内存中以支持 io.ReaderAt & io.ReadSeeker
+// 按需求读取到内存
 func NewBufferReader(r io.Reader) *bufferReader {
 	return &bufferReader{r: r}
 }
@@ -89,7 +90,7 @@ func (br *bufferReader) Seek(offset int64, whence int) (int64, error) {
 
 func (br *bufferReader) ReadAt(p []byte, off int64) (n int, err error) {
 	if off < 0 {
-		return 0, errors.New("negative offset")
+		return 0, ErrNegativeOffset
 	}
 
 	br.lock.RLock()

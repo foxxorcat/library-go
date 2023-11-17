@@ -8,10 +8,11 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 )
 
-// NewReaderAtBuffer return io.ReaderAt
+// NewReaderAtBuffer
 // 基于lru为io.ReaderAt提供缓存支持
-// @param blockSize 缓存块大小。
-// @param blockNum 缓存块数量.
+// @param blockSize 缓存块大小
+// @param blockNum 缓存块数量
+// @return io.ReaderAt
 func NewReaderAtBuffer(r io.ReaderAt, blockSize int, blockNum int) *readerAtBuffer {
 	pool := pool.NewPoolCap(blockNum, func() []byte {
 		return make([]byte, blockSize)

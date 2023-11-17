@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"hash/crc32"
 	"io"
+	"net/http"
+	"os"
 	"testing"
 
 	ioutils "github.com/foxxorcat/library-go/io"
-	math_utils "github.com/foxxorcat/library-go/math"
+	http_reader "github.com/foxxorcat/library-go/io/httpReader"
 	randomutils "github.com/foxxorcat/library-go/random"
+	systemutil "github.com/foxxorcat/library-go/system"
 	"github.com/pkg/errors"
 )
 
@@ -88,6 +91,38 @@ func TestBufferReadSeeker(t *testing.T) {
 	}
 }
 
+func TestHttpReader(t *testing.T) {
+	file, err := os.CreateTemp("", "iotest-*")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	data1 := randomutils.RandomBytes(2 * 1024 * 1024)
+	file.Write(data1)
+	file.Close()
+
+	defer os.RemoveAll(file.Name())
+
+	ht := &http.Transport{}
+	ht.RegisterProtocol("file", http.NewFileTransport(http.Dir("/")))
+	hc := &http.Client{Transport: ht}
+
+	r, err := http_reader.NewHttpReader(http.MethodGet, "file://"+file.Name(), http_reader.SetClient(hc))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer r.Close()
+
+	if err := testSizeReadAt(r, int64(len(data1)), crc32.ChecksumIEEE(data1)); err != nil {
+		t.Error(err)
+	}
+
+	if err := testReadSeek(r, int64(len(data1)), crc32.ChecksumIEEE(data1)); err != nil {
+		t.Error(err)
+	}
+}
+
 func testSizeReadAt(rs ioutils.SizeReaderAt, size int64, crc32_ uint32) error {
 	if rs.Size() != size {
 		return errors.Errorf("大小错误,实际大小:%d != %d", rs.Size(), size)
@@ -103,7 +138,7 @@ func testReadAt(r ioutils.ReaderAt, size int64, crc32_ uint32) error {
 	)
 
 	/* 正常功能测试 */
-	for i := 0; i < int(math_utils.Log(size)); i++ {
+	for i := 0; i < int(systemutil.Log(size)); i++ {
 		off := randomutils.FastRandn(uint32(size))
 		n, err = r.ReadAt(buf[:], int64(off))
 
@@ -168,14 +203,14 @@ func testReadSeek(r ioutils.ReadSeeker, size int64, crc32_ uint32) error {
 	var buf [4096]byte
 
 	// Seek可用性测试
-	for i := 0; i < int(math_utils.Log(size)); i++ {
+	for i := 0; i < int(systemutil.Log(size)); i++ {
 		off := int64(randomutils.FastRandn(uint32(size)))
 		noff, err := r.Seek(off, io.SeekStart)
 		if err != nil || noff != off {
 			return errors.Errorf("Seek错误 noff:%d != off:%d, err=%s", noff, off, err)
 		}
 	}
-	for i := 0; i < int(math_utils.Log(size)); i++ {
+	for i := 0; i < int(systemutil.Log(size)); i++ {
 		off := -int64(randomutils.FastRandn(uint32(size)))
 		noff, err := r.Seek(off, io.SeekEnd)
 		off = size + off

@@ -1,7 +1,6 @@
 package ioutils
 
 import (
-	"errors"
 	"io"
 	"sync"
 
@@ -78,7 +77,7 @@ func (r *bufferReadSeeker) loadBlock(index int) ([]byte, error) {
 	}
 
 	n, err := io.ReadFull(r.r, buf[:r.blockSize])
-	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+	if err != nil && err != io.EOF {
 		return nil, err
 	}
 	buf = buf[:n]
@@ -88,7 +87,7 @@ func (r *bufferReadSeeker) loadBlock(index int) ([]byte, error) {
 
 func (r *bufferReadSeeker) ReadAt(p []byte, off int64) (rn int, err error) {
 	if off < 0 {
-		return 0, errors.New("negative offset")
+		return 0, ErrNegativeOffset
 	}
 
 	index := int(off / int64(r.blockSize))  // 缓存块编号

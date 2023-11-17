@@ -5,7 +5,7 @@ import (
 	"io"
 	"sort"
 
-	math_utils "github.com/foxxorcat/library-go/math"
+	systemutil "github.com/foxxorcat/library-go/system"
 )
 
 // 合并多个关闭接口
@@ -49,7 +49,7 @@ type multiReaderAt struct {
 
 func (m *multiReaderAt) ReadAt(p []byte, offset int64) (rn int, err error) {
 	if offset < 0 {
-		return 0, errors.New("negative offset")
+		return 0, ErrNegativeOffset
 	}
 
 	// 超过文件可读范围
@@ -77,7 +77,7 @@ func (m *multiReaderAt) ReadAt(p []byte, offset int64) (rn int, err error) {
 
 		// 读取该Part
 		part := m.parts[indexParts]
-		n, err := part.ReadAt(p[:math_utils.Min(part.Size()-offset, len(p))], offset)
+		n, err := part.ReadAt(p[:systemutil.Min(part.Size()-offset, len(p))], offset)
 
 		rn += n
 		p = p[n:]
